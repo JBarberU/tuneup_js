@@ -10,7 +10,7 @@
  *    logTree -- a boolean to log the element tree when the test fails (default 'true')
  *
  * Example:
- * test("Sign-In", function(target, application) {
+ * test_internal("Sign-In", function(target, application) {
  *   // exercise and validate your application.
  * });
  *
@@ -19,7 +19,7 @@
  * executed, if one check succeeds. If TUNEUP_ONLY_RUN is not defined,
  * no checks are performed.
  */
-function test(title, f, options) {
+function test_internal(title, f, options) {
   if (typeof TUNEUP_ONLY_RUN !== 'undefined') {
     for (var i = 0; i < TUNEUP_ONLY_RUN.length; i++) {
         if (new RegExp("^" + TUNEUP_ONLY_RUN[i] + "$").test(title)) {
@@ -49,6 +49,39 @@ function test(title, f, options) {
     if (options.screenCapture) target.captureScreenWithName(title + '-fail');
     UIALogger.logFail(title);
   }
+}
+
+var tests = [];
+
+/**
+ * Setup is run prior to any test cases.
+ * Could be used to set a known state for the app, that isn't part of 
+ * the actual test cases.
+ */
+function setup(f) {
+	test_internal("Setup", f);
+}
+
+/**
+ * Adds the given test to the test queue.
+ * All tests will run when the teardown function is called.
+ */
+function test(title, f, options) {
+	tests.push({title: title, func: f, opts: options});
+}
+
+/**
+ * Runs all the queued tests and finnally calls the teardown function that 
+ * has been given as an argument to this function. 
+ */
+function tearDown(f) {
+	try {
+		tests.forEach(function(t) {
+			test_internal(t.title, t.func, t.options);	
+		});	
+	} catch (e) {}	
+
+	test_internal("Teardown", f);
 }
 
 /**
