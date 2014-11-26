@@ -20,81 +20,99 @@
  * no checks are performed.
  */
 function test_internal(title, f, options) {
-  if (typeof TUNEUP_ONLY_RUN !== 'undefined') {
-    for (var i = 0; i < TUNEUP_ONLY_RUN.length; i++) {
-        if (new RegExp("^" + TUNEUP_ONLY_RUN[i] + "$").test(title)) {
-          break;
-        }
-        if (i == TUNEUP_ONLY_RUN.length -1) {
-          return;
-        }
-    }
-  }
+	if (typeof TUNEUP_ONLY_RUN !== 'undefined') {
+		for (var i = 0; i < TUNEUP_ONLY_RUN.length; i++) {
+			if (new RegExp("^" + TUNEUP_ONLY_RUN[i] + "$").test(title)) {
+				break;
+			}
+			if (i == TUNEUP_ONLY_RUN.length -1) {
+				return;
+			}
+		}
+	}
 
-  if (!options) {
-    options = testCreateDefaultOptions();
-  }
-  target = UIATarget.localTarget();
-  application = target.frontMostApp();
-  UIALogger.logStart(title);
-  try {
-    f(target, application);
-    UIALogger.logPass(title);
-  }
-  catch (e) {
-    UIALogger.logError(e.toString());
-    if (options.logStackTrace) UIALogger.logError(e.stack);
-    if (options.logTree) target.logElementTree();
-    if (options.logTreeJSON) application.mainWindow().logElementTreeJSON();
-    if (options.screenCapture) target.captureScreenWithName(title + '-fail');
-    UIALogger.logFail(title);
-  }
+	if (!options) {
+		options = testCreateDefaultOptions();
+	}
+	target = UIATarget.localTarget();
+	application = target.frontMostApp();
+	UIALogger.logStart(title);
+	try {
+		f(target, application);
+		UIALogger.logPass(title);
+	}
+	catch (e) {
+		UIALogger.logError(e.toString());
+		if (options.logStackTrace) UIALogger.logError(e.stack);
+		if (options.logTree) target.logElementTree();
+		if (options.logTreeJSON) application.mainWindow().logElementTreeJSON();
+		if (options.screenCapture) target.captureScreenWithName(title + '-fail');
+		UIALogger.logFail(title);
+	}
 }
 
 var tests = [];
 
 /**
- * Setup is run prior to any test cases.
- * Could be used to set a known state for the app, that isn't part of 
+ * @brief Setup the following test cases 
+ * @details Could be used to set a known state for the app, that isn't part of 
  * the actual test cases.
+ *
+ * @param f The function to use for the setup
  */
 function setup(f) {
 	test_internal("Setup", f);
 }
 
 /**
- * Adds the given test to the test queue.
- * All tests will run when the teardown function is called.
+ * @brief Add a test to the test queue.
+ * @details All tests will run when the teardown function is called.
+ * @param title The name to show when running the test
+ * @param f The function to use as a test case
+ * @param f_cleanup The function to use as test cleanup (optional)
+ * @param options The options to pass into the internal test function (optional)
  */
-function test(title, f, options) {
-	tests.push({title: title, func: f, opts: options});
+function test(title, f, f_cleanup, options) {
+	tests.push({title: title, func: f, func_cleanup: f_cleanup, opts: options});
 }
 
 /**
- * Runs all the queued tests and finnally calls the teardown function that 
- * has been given as an argument to this function. 
+ * @brief Run all the queued tests and finnally call the given teardown function 
+ * @param f The teardown function
  */
 function tearDown(f) {
 	try {
+		target = UIATarget.localTarget();
+		application = target.frontMostApp();
+
 		tests.forEach(function(t) {
 			test_internal(t.title, t.func, t.options);	
+
+			if (typeof t.func_cleanup !== "undefined") {
+				try {
+					t.func_cleanup(target, application);
+				} catch (e) {
+					UIALogger.logError("Failed to run cleanup of: \"" + t.title + "\"");
+					UIALogger.logError(e.stack);
+				}
+			}
 		});	
 	} catch (e) {}	
 
 	test_internal("Teardown", f);
 }
 
-/**
+/*
  * Helper function to isolate clients from additional option changes. Clients can use this function to get a new option object and then only change the options they care about, confident that any new options added since their
  * code was created will contain the new default values.
  * @returns {Object} containing the error options
  */
 function testCreateDefaultOptions() {
-  return {
-    logStackTrace: false,
-    logTree: true,
-    logTreeJSON: false,
-    screenCapture: true
-  };
+	return {
+		logStackTrace: false,
+    	logTree: true,
+    	logTreeJSON: false,
+    	screenCapture: true
+	};
 }
 
